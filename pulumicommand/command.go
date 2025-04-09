@@ -45,6 +45,7 @@ func (r *Runner) Run(ctx context.Context, logger *log.Logger) (map[string]*Resou
 	// Wait for in-progress pulumi commands to return before proceeding
 	select {
 	case <-ctx.Done():
+		logger.Println("context done")
 		return nil, ctx.Err()
 	case r.inFlight <- struct{}{}:
 		defer func() { <-r.inFlight }()
@@ -54,5 +55,5 @@ func (r *Runner) Run(ctx context.Context, logger *log.Logger) (map[string]*Resou
 	if err != nil {
 		logger.Printf("error running pulumi command: %v", err)
 	}
-	return res, err
+	return res, nil
 }

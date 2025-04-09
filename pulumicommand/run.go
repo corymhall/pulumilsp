@@ -70,45 +70,46 @@ func run(ctx context.Context, stack auto.Stack, logger *log.Logger) (map[string]
 	store := &ResourceStore{}
 	events := make(chan GrpcEntry)
 
-	go processGrpcEvents(ctx, events, store, logger)
-
 	f, err := setupLogTailing("preview", events)
 	if err != nil {
 		return nil, fmt.Errorf("failed to tail logs: %w", err)
 	}
-	defer func() {
-		close(events)
-		f.Close()
-	}()
+	defer f.Close()
+	go processGrpcEvents(ctx, events, store, logger)
 
 	logger.Printf("Tailing logs from file: %s", f.Filename)
 	stack.Workspace().SetEnvVar("PULUMI_DEBUG_GRPC", f.Filename)
 
-	_, err = stack.Preview(ctx, PolicyPacks([]string{"/Users/chall/work/tmp/policypack"}), optpreview.SuppressProgress())
+	_, err = stack.Preview(ctx, optpreview.SuppressProgress())
 	return store.Resources, err
 }
 
 func processGrpcEvents(ctx context.Context, events <-chan GrpcEntry, store *ResourceStore, logger *log.Logger) {
-	select {
-	case <-ctx.Done():
-		logger.Println("Stopping processGrpcEvents due to context cancellation")
-		return
-	case evt, ok := <-events:
-		if !ok {
-			logger.Println("Events channel closed, stopping processGrpcEvents")
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Println("Stopping processGrpcEvents due to context cancellation")
 			return
+		case evt, ok := <-events:
+			if !ok {
+				logger.Println("Events channel closed, stopping processGrpcEvents")
+				return
+			}
+			handleGrpcEvent(evt, store, logger)
 		}
-		handleGrpcEvent(evt, store, logger)
 	}
 }
 
 func handleGrpcEvent(evt GrpcEntry, store *ResourceStore, logger *log.Logger) {
 	switch evt.Method {
 	case "/pulumirpc.ResourceMonitor/RegisterResource":
+		logger.Println("RegisterResource event")
 		handleRegisterResource(evt, store, logger)
 	case "/pulumirpc.Analyzer/AnalyzeStack":
+		logger.Println("AnalyzeStack event")
 		handleAnalyzeStack(evt, store, logger)
 	case "/pulumirpc.Analyzer/Analyze":
+		logger.Println("AnalyzeStack event")
 		handleAnalyze(evt, store, logger)
 	default:
 		// Unhandled method
@@ -196,12 +197,6 @@ func watchFile(path string, receivers []chan<- GrpcEntry) (*fileWatcher, error) 
 	}
 	done := make(chan bool)
 	go func(tailedLog *tail.Tail) {
-		defer func() {
-			for _, r := range receivers {
-				close(r)
-			}
-			close(done)
-		}()
 		for line := range tailedLog.Lines {
 			if line.Err != nil {
 				for _, r := range receivers {

@@ -44,7 +44,15 @@
     },
     "compile": {
       "name": "compile",
-      "description": "Only compile"
+      "description": "Only compile",
+      "steps": [
+        {
+          "exec": "go build -o bin/pulumilsp -ldflags \"-s -w\" ./cmd/pulumilsp"
+        },
+        {
+          "spawn": "package:vscode"
+        }
+      ]
     },
     "default": {
       "name": "default",
@@ -69,15 +77,7 @@
     },
     "package": {
       "name": "package",
-      "description": "Creates the distribution package",
-      "steps": [
-        {
-          "exec": "go build -o bin/pulumilsp -ldflags \"-s -w\" ./cmd/pulumilsp"
-        },
-        {
-          "spawn": "package:vscode"
-        }
-      ]
+      "description": "Creates the distribution package"
     },
     "package-go": {
       "name": "package-go",

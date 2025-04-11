@@ -43,6 +43,7 @@ func NewGitHubReleaseWorkflow(
 		ReleaseWorkflowSetupSteps: &[]*workflows.JobStep{
 			Workflows_SetupGo(),
 			Workflows_SetupNode(),
+			{Run: StrPtr("yarn install --check-files --frozen-lockfile")},
 		},
 		ArtifactsDirectory: StrPtr("dist"),
 		Branch:             StrPtr("main"),

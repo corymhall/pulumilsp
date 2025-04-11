@@ -66,8 +66,8 @@ func main() {
 			},
 		},
 	})
-	project.PackageTask().Exec(projenrc.StrPtr("go build -o bin/pulumilsp -ldflags \"-s -w\" ./cmd/pulumilsp"), &projen.TaskStepOptions{})
-	project.PackageTask().Spawn(vscodePackageTask, &projen.TaskStepOptions{})
+	project.CompileTask().Exec(projenrc.StrPtr("go build -o bin/pulumilsp -ldflags \"-s -w\" ./cmd/pulumilsp"), &projen.TaskStepOptions{})
+	project.CompileTask().Spawn(vscodePackageTask, &projen.TaskStepOptions{})
 
 	project.Synth()
 	vscode.Synth()

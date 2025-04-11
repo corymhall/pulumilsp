@@ -54,7 +54,7 @@ func NewGitHubReleaseWorkflow(
 		Contents: workflows.JobPermission_WRITE,
 	}
 	env := &map[string]*string{
-		"VERSION": StrPtr("needs.release.outputs.version"),
+		"VERSION": StrPtr("${{ needs.release.outputs.version }}"),
 	}
 	vscePackageJob := VscePackageWorkflow(
 		gh,
@@ -208,7 +208,7 @@ func UpdateReleaseJob(
 		Needs:       &[]*string{StrPtr("package-vsce"), StrPtr("package-go"), StrPtr("release")},
 		RunsOn:      &[]*string{StrPtr("ubuntu-latest")},
 		Env: &map[string]*string{
-			"VERSION": StrPtr("needs.release.outputs.version"),
+			"VERSION": StrPtr("${{ needs.release.outputs.version }}"),
 		},
 		Steps: &[]*workflows.JobStep{
 			github.WorkflowSteps_Checkout(&github.CheckoutOptions{}),

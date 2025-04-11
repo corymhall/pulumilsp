@@ -19,6 +19,9 @@ func main() {
 			},
 		},
 	})
+	projen.NewLicense(project, &projen.LicenseOptions{
+		Spdx: projenrc.StrPtr("Apache-2.0"),
+	})
 	project.DefaultTask().Exec(projenrc.StrPtr("go run projenrc.go"), &projen.TaskStepOptions{})
 
 	vscode := projenrc.NewVscodeProject(project)

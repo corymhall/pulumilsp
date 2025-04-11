@@ -7,6 +7,7 @@ node_modules/
 !/.projen/tasks.json
 !/.projen/deps.json
 !/.projen/files.json
+!/LICENSE
 !/.github/workflows/pull-request-lint.yml
 /dist/changelog.md
 /dist/version.txt

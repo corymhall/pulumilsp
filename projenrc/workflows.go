@@ -100,8 +100,8 @@ func VscePackageWorkflow(
 		github.WorkflowSteps_Checkout(&github.CheckoutOptions{}),
 		Workflows_SetupNode(),
 		{
-			Name: StrPtr("Install"),
-			Run:  gh.Project().RunTaskCommand(defaultTask),
+			Name: StrPtr("Install Deps"),
+			Run:  StrPtr("cd editors/vscode && yarn install --check-files --frozen-lockfile"),
 		},
 		{
 			Name: StrPtr("Package vsce"),
@@ -112,12 +112,6 @@ func VscePackageWorkflow(
 				"VERSION":  StrPtr("${{ env.VERSION }}"),
 			},
 		},
-		github.WorkflowSteps_UploadArtifact(&github.UploadArtifactOptions{
-			With: &github.UploadArtifactWith{
-				Name: StrPtr("pulumilsp-client-${{ matrix.platform }}-${{ matrix.arch }}-${{ github.ref_name }}"),
-				Path: StrPtr("./dist/pulumilsp-client-${{ matrix.platform }}-${{ matrix.arch }}-${{ github.ref_name }}.vsix"),
-			},
-		}),
 	}
 	if withUploadArtifact {
 		steps = append(steps, github.WorkflowSteps_UploadArtifact(&github.UploadArtifactOptions{
@@ -163,10 +157,6 @@ func GoPackageWorkflow(
 		github.WorkflowSteps_Checkout(&github.CheckoutOptions{}),
 		Workflows_SetupGo(),
 		Workflows_SetupNode(),
-		{
-			Name: StrPtr("Install"),
-			Run:  gh.Project().RunTaskCommand(defaultTask),
-		},
 		{
 			Name: StrPtr("Package Go"),
 			Run:  gh.Project().RunTaskCommand(packageGoTask),

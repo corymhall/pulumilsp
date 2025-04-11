@@ -26,8 +26,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20.x
-      - name: build
-        run: npx projen@0.91.20 build
+      - name: ci-build
+        run: npx projen@0.91.20 ci-build
       - name: Find mutations
         id: self_mutation
         run: |-
@@ -76,20 +76,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20.x
-      - name: Install
-        run: npx projen@0.91.20 default
+      - name: Install Deps
+        run: cd editors/vscode && yarn install --check-files --frozen-lockfile
       - name: Package vsce
         env:
           ARCH: ${{ matrix.arch }}
           PLATFORM: ${{ matrix.platform }}
           VERSION: ${{ env.VERSION }}
         run: npx projen@0.91.20 package-vsce
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4.4.0
-        with:
-          name: pulumilsp-client-${{ matrix.platform }}-${{ matrix.arch }}-${{ github.ref_name }}
-          overwrite: true
-          path: ./dist/pulumilsp-client-${{ matrix.platform }}-${{ matrix.arch }}-${{ github.ref_name }}.vsix
     strategy:
       matrix:
         include:
@@ -127,8 +121,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20.x
-      - name: Install
-        run: npx projen@0.91.20 default
       - name: Package Go
         env:
           GOARCH: ${{ matrix.arch }}

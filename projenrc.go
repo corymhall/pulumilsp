@@ -45,9 +45,12 @@ func main() {
 	})
 
 	gh := github.NewGitHub(project, &github.GitHubOptions{})
+	ciBuildTask := project.AddTask(projenrc.StrPtr("ci-build"), &projen.TaskOptions{
+		Exec: projenrc.StrPtr("mkdir -p dist"),
+	})
 	projenrc.NewGitHubReleaseWorkflow(project, gh, packageVsceTask, packageGoTask)
 	buildWorkflow := build.NewBuildWorkflow(project, &build.BuildWorkflowOptions{
-		BuildTask: project.BuildTask(),
+		BuildTask: ciBuildTask,
 		PreBuildSteps: &[]*workflows.JobStep{
 			projenrc.Workflows_SetupGo(),
 			projenrc.Workflows_SetupNode(),

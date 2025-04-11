@@ -180,15 +180,15 @@ func GoPackageWorkflow(
 		Needs:       needs,
 		Permissions: permissions,
 		Env:         env,
-		RunsOn:      &[]*string{StrPtr("ubuntu-latest")},
+		RunsOn:      &[]*string{StrPtr("${{ matrix.os }}}")},
 		Strategy: &workflows.JobStrategy{
 			Matrix: &workflows.JobMatrix{
 				Include: &[]*map[string]any{
-					{"platform": "linux", "arch": "amd64"},
-					{"platform": "linux", "arch": "arm64"},
-					{"platform": "darwin", "arch": "amd64"},
-					{"platform": "darwin", "arch": "arm64"},
-					{"platform": "windows", "arch": "amd64"},
+					{"platform": "linux", "arch": "amd64", "os": "ubuntu-latest"},
+					{"platform": "linux", "arch": "arm64", "os": "ubuntu-latest"},
+					{"platform": "darwin", "arch": "amd64", "os": "macos-latest"},
+					{"platform": "darwin", "arch": "arm64", "os": "macos-latest"},
+					{"platform": "windows", "arch": "amd64", "os": "windows-latest"},
 				},
 			},
 		},

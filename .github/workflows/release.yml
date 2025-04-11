@@ -85,7 +85,7 @@ jobs:
     needs:
       - release
       - release_github
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}}
     permissions:
       contents: write
     env:
@@ -117,14 +117,19 @@ jobs:
       matrix:
         include:
           - arch: amd64
+            os: ubuntu-latest
             platform: linux
           - arch: arm64
+            os: ubuntu-latest
             platform: linux
           - arch: amd64
+            os: macos-latest
             platform: darwin
           - arch: arm64
+            os: macos-latest
             platform: darwin
           - arch: amd64
+            os: windows-latest
             platform: windows
   package-vsce:
     needs:

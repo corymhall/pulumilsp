@@ -37,13 +37,8 @@ func NewGitHubReleaseWorkflow(
 			{
 				Name: StrPtr("Get Version"),
 				Id:   StrPtr("get_version"),
-				Run:  StrPtr("cat dist/releasetag.txt >> $GITHUB_OUTPUT"),
+				Run:  StrPtr("echo \"version=$(cat dist/releasetag.txt)\" >> $GITHUB_OUTPUT"),
 			},
-		},
-		ReleaseWorkflowSetupSteps: &[]*workflows.JobStep{
-			Workflows_SetupGo(),
-			Workflows_SetupNode(),
-			{Run: StrPtr("yarn install --check-files --frozen-lockfile")},
 		},
 		ArtifactsDirectory: StrPtr("dist"),
 		Branch:             StrPtr("main"),

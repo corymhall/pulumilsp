@@ -180,7 +180,7 @@ func GoPackageWorkflow(
 		Needs:       needs,
 		Permissions: permissions,
 		Env:         env,
-		RunsOn:      &[]*string{StrPtr("${{ matrix.os }}}")},
+		RunsOn:      &[]*string{StrPtr("${{ matrix.os }}")},
 		Strategy: &workflows.JobStrategy{
 			Matrix: &workflows.JobMatrix{
 				Include: &[]*map[string]any{

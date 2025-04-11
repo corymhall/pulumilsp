@@ -85,7 +85,7 @@ jobs:
     needs:
       - release
       - release_github
-    runs-on: ${{ matrix.os }}}
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: write
     env:

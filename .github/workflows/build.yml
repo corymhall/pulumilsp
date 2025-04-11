@@ -99,7 +99,7 @@ jobs:
             platform: win32
   package-go:
     needs: build
-    runs-on: ${{ matrix.os }}}
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
     if: ${{ !needs.build.outputs.self_mutation_happened }}

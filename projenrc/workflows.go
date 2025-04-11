@@ -40,6 +40,10 @@ func NewGitHubReleaseWorkflow(
 				Run:  StrPtr("cat dist/releasetag.txt >> $GITHUB_OUTPUT"),
 			},
 		},
+		ReleaseWorkflowSetupSteps: &[]*workflows.JobStep{
+			Workflows_SetupGo(),
+			Workflows_SetupNode(),
+		},
 		ArtifactsDirectory: StrPtr("dist"),
 		Branch:             StrPtr("main"),
 		Task:               project.PackageTask(),

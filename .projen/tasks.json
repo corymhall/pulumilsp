@@ -99,7 +99,7 @@
       ],
       "steps": [
         {
-          "exec": "go build -o ./bin/$GOOS-$GOARCH/pulumilsp -ldflags \"-s -w -extldflags '-static'\" ./cmd/pulumilsp"
+          "exec": "go build -o ./bin/$GOOS-$GOARCH/pulumilsp -ldflags \"-s -w\" ./cmd/pulumilsp"
         },
         {
           "exec": "mkdir -p ./dist"

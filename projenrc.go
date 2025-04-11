@@ -38,7 +38,7 @@ func main() {
 			"CGO_ENABLED": projenrc.StrPtr("1"),
 		},
 		Steps: &[]*projen.TaskStep{
-			{Exec: projenrc.StrPtr("go build -o ./bin/$GOOS-$GOARCH/pulumilsp -ldflags \"-s -w -extldflags '-static'\" ./cmd/pulumilsp")},
+			{Exec: projenrc.StrPtr("go build -o ./bin/$GOOS-$GOARCH/pulumilsp -ldflags \"-s -w\" ./cmd/pulumilsp")},
 			{Exec: projenrc.StrPtr("mkdir -p ./dist")},
 			{Exec: projenrc.StrPtr("tar --gzip -cf ./dist/pulumilsp-$VERSION-$GOOS-$GOARCH.tar.gz README.md LICENSE -C ./bin/$GOOS-$GOARCH .")},
 		},

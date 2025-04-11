@@ -33,7 +33,7 @@ jobs:
         run: npx projen@0.91.20 release
       - name: Get Version
         id: get_version
-        run: echo "version=$(cat dist/releasetag.txt)" >> $GITHUB_OUTPUT
+        run: echo "version=$(cat dist/version.txt)" >> $GITHUB_OUTPUT
       - name: Check if version has already been tagged
         id: check_tag_exists
         run: |-
@@ -110,9 +110,9 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4.4.0
         with:
-          name: pulumilsp-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz
+          name: pulumilsp-${{ env.VERSION }}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz
           overwrite: true
-          path: ./dist/pulumilsp-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz
+          path: ./dist/pulumilsp-${{ env.VERSION }}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz
     strategy:
       matrix:
         include:
@@ -152,9 +152,9 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4.4.0
         with:
-          name: pulumilsp-client-${{ matrix.platform }}-${{ matrix.arch }}-${{ github.ref_name }}
+          name: pulumilsp-client-${{ matrix.platform }}-${{ matrix.arch }}-${{ env.VERSION }}
           overwrite: true
-          path: ./dist/pulumilsp-client-${{ matrix.platform }}-${{ matrix.arch }}-${{ github.ref_name }}.vsix
+          path: ./dist/pulumilsp-client-${{ matrix.platform }}-${{ matrix.arch }}-${{ env.VERSION }}.vsix
     strategy:
       matrix:
         include:
@@ -190,5 +190,6 @@ jobs:
           pattern: pulumilsp-*
       - name: Upload Release
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ env.VERSION }}
         run: gh release upload $VERSION dist/*

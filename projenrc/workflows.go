@@ -37,7 +37,7 @@ func NewGitHubReleaseWorkflow(
 			{
 				Name: StrPtr("Get Version"),
 				Id:   StrPtr("get_version"),
-				Run:  StrPtr("echo \"version=$(cat dist/releasetag.txt)\" >> $GITHUB_OUTPUT"),
+				Run:  StrPtr("echo \"version=$(cat dist/version.txt)\" >> $GITHUB_OUTPUT"),
 			},
 		},
 		ArtifactsDirectory: StrPtr("dist"),
@@ -116,8 +116,8 @@ func VscePackageWorkflow(
 	if withUploadArtifact {
 		steps = append(steps, github.WorkflowSteps_UploadArtifact(&github.UploadArtifactOptions{
 			With: &github.UploadArtifactWith{
-				Name: StrPtr("pulumilsp-client-${{ matrix.platform }}-${{ matrix.arch }}-${{ github.ref_name }}"),
-				Path: StrPtr("./dist/pulumilsp-client-${{ matrix.platform }}-${{ matrix.arch }}-${{ github.ref_name }}.vsix"),
+				Name: StrPtr("pulumilsp-client-${{ matrix.platform }}-${{ matrix.arch }}-${{ env.VERSION }}"),
+				Path: StrPtr("./dist/pulumilsp-client-${{ matrix.platform }}-${{ matrix.arch }}-${{ env.VERSION }}.vsix"),
 			},
 		}))
 	}
@@ -170,8 +170,8 @@ func GoPackageWorkflow(
 	if withUploadArtifact {
 		steps = append(steps, github.WorkflowSteps_UploadArtifact(&github.UploadArtifactOptions{
 			With: &github.UploadArtifactWith{
-				Name: StrPtr("pulumilsp-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz"),
-				Path: StrPtr("./dist/pulumilsp-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz"),
+				Name: StrPtr("pulumilsp-${{ env.VERSION }}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz"),
+				Path: StrPtr("./dist/pulumilsp-${{ env.VERSION }}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz"),
 			},
 		}))
 	}
@@ -223,7 +223,8 @@ func UpdateReleaseJob(
 				Name: StrPtr("Upload Release"),
 				Run:  StrPtr("gh release upload $VERSION dist/*"),
 				Env: &map[string]*string{
-					"VERSION": StrPtr("${{ env.VERSION }}"),
+					"VERSION":      StrPtr("${{ env.VERSION }}"),
+					"GITHUB_TOKEN": StrPtr("${{ secrets.GITHUB_TOKEN }}"),
 				},
 			},
 		},

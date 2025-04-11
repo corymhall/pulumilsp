@@ -42,14 +42,6 @@
       ],
       "condition": "git log --oneline -1 | grep -qv \"chore(release):\""
     },
-    "ci-build": {
-      "name": "ci-build",
-      "steps": [
-        {
-          "exec": "mkdir -p dist"
-        }
-      ]
-    },
     "compile": {
       "name": "compile",
       "description": "Only compile"

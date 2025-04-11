@@ -48,27 +48,15 @@ func main() {
 	})
 
 	gh := github.NewGitHub(project, &github.GitHubOptions{})
-	ciBuildTask := project.AddTask(projenrc.StrPtr("ci-build"), &projen.TaskOptions{
-		Exec: projenrc.StrPtr("mkdir -p dist"),
-	})
 	projenrc.NewGitHubReleaseWorkflow(project, gh, packageVsceTask, packageGoTask)
-	buildWorkflow := build.NewBuildWorkflow(project, &build.BuildWorkflowOptions{
-		BuildTask: ciBuildTask,
+	build.NewBuildWorkflow(project, &build.BuildWorkflowOptions{
+		BuildTask: project.BuildTask(),
 		PreBuildSteps: &[]*workflows.JobStep{
 			projenrc.Workflows_SetupGo(),
 			projenrc.Workflows_SetupNode(),
 		},
 		MutableBuild: projenrc.BoolPtr(false),
 	})
-	buildPermissions := &workflows.JobPermissions{
-		Contents: workflows.JobPermission_READ,
-	}
-	buildWorkflow.AddPostBuildJob(projenrc.StrPtr("package-vsce"), projenrc.VscePackageWorkflow(
-		gh, project.DefaultTask(), packageVsceTask, false, nil, nil, buildPermissions, nil,
-	))
-	buildWorkflow.AddPostBuildJob(projenrc.StrPtr("package-go"), projenrc.GoPackageWorkflow(
-		gh, project.DefaultTask(), packageGoTask, false, nil, nil, buildPermissions, nil,
-	))
 
 	vscodePackageTask := project.AddTask(projenrc.StrPtr("package:vscode"), &projen.TaskOptions{
 		Steps: &[]*projen.TaskStep{

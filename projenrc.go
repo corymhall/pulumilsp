@@ -27,7 +27,7 @@ func main() {
 		RequiredEnv: &[]*string{projenrc.StrPtr("PLATFORM"), projenrc.StrPtr("ARCH")},
 		Cwd:         projenrc.StrPtr("./editors/vscode"),
 		Steps: &[]*projen.TaskStep{
-			{Exec: projenrc.StrPtr("mkdir -p ./dist")},
+			{Exec: projenrc.StrPtr("mkdir -p ../../dist")},
 			{Exec: projenrc.StrPtr("npx vsce package --target \"$PLATFORM-$ARCH\" --out ../../dist/ $VERSION")},
 		},
 	})

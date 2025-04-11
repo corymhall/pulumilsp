@@ -117,7 +117,7 @@
       ],
       "steps": [
         {
-          "exec": "mkdir -p ./dist"
+          "exec": "mkdir -p ../../dist"
         },
         {
           "exec": "npx vsce package --target \"$PLATFORM-$ARCH\" --out ../../dist/ $VERSION"

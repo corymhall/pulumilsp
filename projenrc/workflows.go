@@ -223,7 +223,7 @@ func UpdateReleaseJob(
 				Name: StrPtr("Upload Release"),
 				Run:  StrPtr("gh release upload $VERSION dist/*"),
 				Env: &map[string]*string{
-					"VERSION":      StrPtr("${{ env.VERSION }}"),
+					"VERSION":      StrPtr("v${{ env.VERSION }}"),
 					"GITHUB_TOKEN": StrPtr("${{ secrets.GITHUB_TOKEN }}"),
 				},
 			},

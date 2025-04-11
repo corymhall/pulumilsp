@@ -191,5 +191,5 @@ jobs:
       - name: Upload Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ env.VERSION }}
+          VERSION: v${{ env.VERSION }}
         run: gh release upload $VERSION dist/*

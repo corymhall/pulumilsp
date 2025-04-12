@@ -19,7 +19,7 @@ func main() {
 	defer panicHandler()
 	ctx := context.Background()
 	logger := getLogger()
-	stream := rpc.NewHeaderStream(os.Stdin, os.Stdout, logger)
+	stream := rpc.NewHeaderStream(os.Stdin, os.Stdout)
 	conn := rpc.NewConn(stream, logger)
 	client := lsp.ClientDispatcher(conn)
 	srv := server.New(logger, client)

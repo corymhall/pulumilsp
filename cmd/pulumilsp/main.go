@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"runtime"
 	"runtime/debug"
 
@@ -17,8 +18,8 @@ import (
 func main() {
 	defer panicHandler()
 	ctx := context.Background()
-	logger := getLogger("/Users/chall/personal/pulumilsp/log.txt")
-	stream := rpc.NewHeaderStream(os.Stdin, os.Stdout)
+	logger := getLogger()
+	stream := rpc.NewHeaderStream(os.Stdin, os.Stdout, logger)
 	conn := rpc.NewConn(stream, logger)
 	client := lsp.ClientDispatcher(conn)
 	srv := server.New(logger, client)
@@ -28,7 +29,8 @@ func main() {
 		}
 	}()
 	ctx = lsp.WithClient(ctx, client)
-	conn.Run(ctx, lsp.ServerHandler(srv, rpc.MethodNotFound))
+	go conn.Run(ctx, lsp.ServerHandler(srv, rpc.MethodNotFound))
+	<-conn.Done()
 }
 
 func panicHandler() {
@@ -50,7 +52,13 @@ func panicHandler() {
 	}
 }
 
-func getLogger(filename string) *log.Logger {
+func getLogger() *log.Logger {
+	home, err := os.UserHomeDir()
+	contract.AssertNoErrorf(err, "could not find home directory")
+	dir := path.Join(home, ".pulumilsp")
+	err = os.MkdirAll(dir, 0700)
+	contract.AssertNoErrorf(err, "could not create dir: %s", dir)
+	filename := path.Join(dir, "log.txt")
 	logfile, err := os.OpenFile(filename, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
 	contract.AssertNoErrorf(err, "failed to open log file: %s", filename)
 	return log.New(logfile, "[pulumilsp]", log.Ldate|log.Ltime|log.Lshortfile)

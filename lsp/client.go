@@ -20,9 +20,7 @@ func (s *clientDispatcher) PublishDiagnostics(ctx context.Context, params *Publi
 }
 
 func (s *clientDispatcher) WorkDoneProgressCreate(ctx context.Context, params *WorkDoneProgressCreateParams) error {
-	// TODO: some reason I never get a response so this hangs forever
-	go s.sender.Call(ctx, "window/workDoneProgress/create", params, nil)
-	return nil
+	return s.sender.Call(ctx, "window/workDoneProgress/create", params, nil)
 }
 
 func (s *clientDispatcher) ProgressBegin(ctx context.Context, params *WorkDoneProgressBeginParams) error {

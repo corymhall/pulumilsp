@@ -30,6 +30,8 @@ type Conn interface {
 
 	Run(ctx context.Context, handler Handler)
 
+	Done() <-chan struct{}
+
 	Logger() *log.Logger
 }
 
@@ -39,6 +41,7 @@ type conn struct {
 	pendingMu sync.Mutex // protects the pending map
 	pending   map[ID]chan *Response
 	logger    *log.Logger
+	done      chan struct{}
 }
 
 func (c *conn) Logger() *log.Logger {
@@ -51,6 +54,7 @@ func NewConn(s Stream, logger *log.Logger) Conn {
 		logger:  logger,
 		stream:  s,
 		pending: make(map[ID]chan *Response),
+		done:    make(chan struct{}),
 	}
 	return conn
 }
@@ -140,6 +144,7 @@ func (c *conn) write(ctx context.Context, msg Message) (int64, error) {
 }
 
 func (c *conn) Run(ctx context.Context, handler Handler) {
+	defer close(c.done)
 	for {
 		// get the next message
 		msg, n, err := c.stream.Read(ctx)
@@ -168,5 +173,10 @@ func (c *conn) Run(ctx context.Context, handler Handler) {
 				rchan <- msg
 			}
 		}
+		c.logger.Printf("Message not handled: %v", msg)
 	}
+}
+
+func (c *conn) Done() <-chan struct{} {
+	return c.done
 }

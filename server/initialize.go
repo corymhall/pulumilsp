@@ -13,7 +13,7 @@ func (s *server) Initialize(ctx context.Context, params *lsp.InitializeRequestPa
 	s.stateMu.Lock()
 	if s.state >= serverInitializing {
 		defer s.stateMu.Unlock()
-		return nil, fmt.Errorf("%w: initialize called while server in %v state", rpc.ErrInvalidRequest, s.state)
+		return nil, fmt.Errorf("%w: initialize called while server in %v state", errors.New(rpc.ErrInvalidRequest), s.state)
 	}
 	s.progress.SetSupportsWorkDoneProgress(params.Capabilities.Window.WorkDoneProgress)
 	s.state = serverInitializing
@@ -22,14 +22,15 @@ func (s *server) Initialize(ctx context.Context, params *lsp.InitializeRequestPa
 	return &lsp.InitializeResult{
 		Capabilities: lsp.ServerCapabilities{
 			TextDocumentSync: 1,
-			CodeActionProvider: lsp.CodeActionProviderOptions{
-				ResolveProvider: true,
-				CodeActionKinds: []lsp.CodeActionKind{
-					lsp.CodeActionKindQuickFix,
-					lsp.CodeActionKindRefactor,
-					lsp.CodeActionKindRefactorRewrite,
-				},
-			},
+			// Don't enable this yet, just a hackathon idea
+			// CodeActionProvider: lsp.CodeActionProviderOptions{
+			// 	ResolveProvider: true,
+			// 	CodeActionKinds: []lsp.CodeActionKind{
+			// 		lsp.CodeActionKindQuickFix,
+			// 		lsp.CodeActionKindRefactor,
+			// 		lsp.CodeActionKindRefactorRewrite,
+			// 	},
+			// },
 		},
 		ServerInfo: lsp.ServerInfo{
 			Name:    "pulumilsp",
@@ -48,6 +49,10 @@ func (s *server) Initialized(ctx context.Context, params *lsp.InitializedParams)
 	s.stateMu.Unlock()
 
 	// when we've initialized create the view
-	s.initializeView(ctx)
+	// do this in a separate goroutine, otherwise it will
+	// block from receiving more requests
+	go func() {
+		s.initializeView(ctx)
+	}()
 	return nil
 }

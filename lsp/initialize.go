@@ -1,6 +1,7 @@
 package lsp
 
 type InitializeRequestParams struct {
+	WorkDoneProgressCreateParams
 	ClientInfo   *ClientInfo        `json:"clientInfo"`
 	RootURI      DocumentURI        `json:"rootUri"`
 	Capabilities ClientCapabilities `json:"capabilities"`

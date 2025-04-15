@@ -3,19 +3,18 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/corymhall/pulumilsp/ai"
+	"github.com/corymhall/pulumilsp/debug"
 	"github.com/corymhall/pulumilsp/lsp"
 )
 
 func (s *server) CodeAction(ctx context.Context, params *lsp.CodeActionParams) ([]lsp.CodeAction, error) {
-	res, err := json.Marshal(params)
-	if err != nil {
-		return nil, err
-	}
-
+	_, done := debug.Start(ctx, "CodeAction")
+	defer done()
 	actions := []lsp.CodeAction{}
 	for _, diag := range params.Context.Diagnostics {
 		actions = append(actions, lsp.CodeAction{
@@ -26,25 +25,26 @@ func (s *server) CodeAction(ctx context.Context, params *lsp.CodeActionParams) (
 		})
 	}
 
-	s.logger.Printf("Received codeAction request: %s", string(res))
 	return actions, nil
 }
 
 func (s *server) ResolveCodeAction(ctx context.Context, params *lsp.CodeAction) (*lsp.CodeAction, error) {
+	ctx, done := debug.Start(ctx, "ResolveCodeAction")
+	defer done()
 	res, err := json.Marshal(params)
 	if err != nil {
 		return nil, err
 	}
-	s.logger.Printf("Received resolveCodeAction request: %s", string(res))
+	debug.Debug.Log(ctx, "Received resolveCodeAction request", "request", string(res))
 	var data lsp.CodeActionResolveData
 	err = json.Unmarshal(*params.Data, &data)
 	if err != nil {
-		s.logger.Printf("error unmarshalling capture info: %v", err)
+		debug.LogError(ctx, "error unmarshalling capture info", err)
 		return nil, fmt.Errorf("error unmarshalling capture info: %w", err)
 	}
 
 	if len(params.Diagnostics) != 1 {
-		s.logger.Printf("expected 1 diagnostic, got %d", len(params.Diagnostics))
+		debug.LogError(ctx, "error processing diagnostics", errors.New(fmt.Sprintf("expected 1 diagnostic, got %d", len(params.Diagnostics))))
 		return nil, fmt.Errorf("expected 1 diagnostic, got %d", len(params.Diagnostics))
 	}
 	diagnostic := params.Diagnostics[0]
@@ -54,15 +54,15 @@ func (s *server) ResolveCodeAction(ctx context.Context, params *lsp.CodeAction) 
 	if strings.Contains(params.Title, "Replication") {
 		fix, err = s.aiClient.FixWithCopilot(ctx, "pulumi", data.Text, diagnostic.Message)
 	} else {
-		fix, err = ai.FixWithOpenAI(ctx, s.logger, data.Text, diagnostic.Message)
+		fix, err = ai.FixWithOpenAI(ctx, data.Text, diagnostic.Message)
 	}
 
 	work.End(ctx, "Done.")
 	if err != nil || fix == "" {
-		s.logger.Printf("error getting fix with copilot: %v", err)
+		debug.LogError(ctx, "error getting fix with copilot", err)
 		return nil, fmt.Errorf("error getting fix with copilot: %w", err)
 	}
-	s.logger.Printf("fix found with copilot: %s", fix)
+	debug.Debug.Log(ctx, "fix found with copilot", "fix", fix)
 	return &lsp.CodeAction{
 		Title: params.Title,
 		Kind:  params.Kind,

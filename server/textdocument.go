@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 
+	"github.com/corymhall/pulumilsp/debug"
 	"github.com/corymhall/pulumilsp/file"
 	"github.com/corymhall/pulumilsp/lsp"
 	"github.com/corymhall/pulumilsp/xcontext"
@@ -52,6 +53,8 @@ const (
 )
 
 func (s *server) didModifyFiles(ctx context.Context, modifications []file.Modification, cause ModificationSource) error {
+	ctx, done := debug.Start(ctx, "textdocument.didModifyFiles")
+	defer done()
 	changes := []lsp.DocumentURI{}
 	for _, mod := range modifications {
 		changes = append(changes, mod.URI)
@@ -64,8 +67,9 @@ func (s *server) didModifyFiles(ctx context.Context, modifications []file.Modifi
 		changed[m.URI] = fh
 	}
 
-	_, release := s.invalidateViewLocked(ctx, StateChange{Modifications: modifications, Files: changed})
+	snapshot, release := s.invalidateViewLocked(ctx, StateChange{Modifications: modifications, Files: changed})
 	release()
+	ctx, _ = debug.With(ctx, "snapshotSequenceID", snapshot.sequenceID)
 
 	modCtx, modID := s.updateViewsToDiagnose(ctx)
 	// don't block on diagnostics
@@ -86,5 +90,6 @@ func (s *server) updateViewsToDiagnose(ctx context.Context) (context.Context, ui
 	modCtx, s.cancelPrevDiagnostics = context.WithCancel(modCtx)
 	s.lastModificationID++
 	modID := s.lastModificationID
+	modCtx, _ = debug.With(modCtx, "modificationID", modID)
 	return modCtx, modID
 }

@@ -17,12 +17,3 @@ type ProgressParams struct {
 	Token ProgressToken `json:"token"`
 	Value any           `json:"value"`
 }
-
-// The message type
-type MessageType uint32
-type ShowMessageParams struct {
-	// The message type. See {@link MessageType}
-	Type MessageType `json:"type"`
-	// The actual message.
-	Message string `json:"message"`
-}

@@ -1,15 +1,23 @@
 package lsp
 
+import "encoding/json"
+
 type InitializeRequestParams struct {
 	WorkDoneProgressCreateParams
-	ClientInfo   *ClientInfo        `json:"clientInfo"`
-	RootURI      DocumentURI        `json:"rootUri"`
-	Capabilities ClientCapabilities `json:"capabilities"`
+	ClientInfo            *ClientInfo        `json:"clientInfo"`
+	RootURI               DocumentURI        `json:"rootUri"`
+	Capabilities          ClientCapabilities `json:"capabilities"`
+	InitializationOptions *json.RawMessage   `json:"initializationOptions,omitempty"`
 	// ... there's tons more that goes here
 }
 
 type ClientCapabilities struct {
-	Window ClientWindowCapabilities `json:"window"`
+	Window    ClientWindowCapabilities    `json:"window"`
+	Workspace ClientWorkspaceCapabilities `json:"workspace"`
+}
+
+type ClientWorkspaceCapabilities struct {
+	Configuration bool `json:"configuration"`
 }
 
 type ClientWindowCapabilities struct {

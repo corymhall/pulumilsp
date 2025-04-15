@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"sync"
 	"sync/atomic"
 
@@ -31,8 +30,6 @@ type Conn interface {
 	Run(ctx context.Context, handler Handler)
 
 	Done() <-chan struct{}
-
-	Logger() *log.Logger
 }
 
 type conn struct {
@@ -40,18 +37,12 @@ type conn struct {
 	stream    Stream
 	pendingMu sync.Mutex // protects the pending map
 	pending   map[ID]chan *Response
-	logger    *log.Logger
 	done      chan struct{}
 }
 
-func (c *conn) Logger() *log.Logger {
-	return c.logger
-}
-
 // NewConn creates a new connection object around the supplied stream.
-func NewConn(s Stream, logger *log.Logger) Conn {
+func NewConn(s Stream) Conn {
 	conn := &conn{
-		logger:  logger,
 		stream:  s,
 		pending: make(map[ID]chan *Response),
 		done:    make(chan struct{}),
@@ -73,7 +64,6 @@ func (c *conn) Call(ctx context.Context, method string, params, result any) (_ I
 	id := ID{number: atomic.AddInt64(&c.seq, 1)}
 	call, err := NewCall(id, method, params)
 	if err != nil {
-		c.logger.Printf("error creating call: %v", err)
 		return id, fmt.Errorf("marshaling call parameters: %v", err)
 	}
 	// We have to add ourselves to the pending map before we send, otherwise we
@@ -92,24 +82,20 @@ func (c *conn) Call(ctx context.Context, method string, params, result any) (_ I
 	// now we are ready to send
 	_, err = c.write(ctx, call)
 	if err != nil {
-		c.logger.Printf("error writing call: %v", err)
 		// sending failed, we will never get a response, so don't leave it pending
 		return id, err
 	}
 	// now wait for the response
 	select {
 	case response := <-rchan:
-		c.logger.Printf("response received for method: %s", method)
 		// is it an error response?
 		if response.err != nil {
-			c.logger.Printf("error in response: %v", response.err)
 			return id, response.err
 		}
 		if result == nil || len(response.result) == 0 {
 			return id, nil
 		}
 		if err := json.Unmarshal(response.result, result); err != nil {
-			c.logger.Printf("error unmarshaling result: %v", err)
 			return id, fmt.Errorf("unmarshaling result: %v", err)
 		}
 		return id, nil
@@ -124,15 +110,12 @@ func (c *conn) replier(req Request) Replier {
 			// request was a notify, no need to respond
 			return nil
 		}
-		c.logger.Printf("replier called for method: %s", call.method)
 		response, err := NewResponse(call.id, result, err)
 		if err != nil {
-			c.logger.Printf("error creating response: %v", err)
 			return err
 		}
 		_, err = c.write(ctx, response)
 		if err != nil {
-			c.logger.Printf("error writing response: %v", err)
 			return err
 		}
 		return nil
@@ -147,23 +130,18 @@ func (c *conn) Run(ctx context.Context, handler Handler) {
 	defer close(c.done)
 	for {
 		// get the next message
-		msg, n, err := c.stream.Read(ctx)
-		c.logger.Printf("read %d bytes from stream", n)
+		msg, _, err := c.stream.Read(ctx)
 		if err != nil {
-			c.logger.Printf("error reading from stream: %v", err)
 			// The stream failed, we cannot continue.
 			contract.AssertNoErrorf(err, "error reading from stream: %v", err)
 			return
 		}
 		switch msg := msg.(type) {
 		case Request:
-			c.logger.Printf("request received for method: %s", msg.Method())
 			if err := handler(ctx, c.replier(msg), msg); err != nil {
 				// delivery failed, not much we can do
-				c.logger.Printf("error handling request: %v", err)
 			}
 		case *Response:
-			c.logger.Printf("response received for id: %v", msg.id)
 			// If method is not set, this should be a response, in which case we must
 			// have an id to send the response back to the caller.
 			c.pendingMu.Lock()
@@ -173,7 +151,6 @@ func (c *conn) Run(ctx context.Context, handler Handler) {
 				rchan <- msg
 			}
 		}
-		c.logger.Printf("Message not handled: %v", msg)
 	}
 }
 

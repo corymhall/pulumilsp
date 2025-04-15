@@ -23,9 +23,16 @@ export async function activate(
     command: 'pulumilsp',
   };
 
+  const logLevel = vscode.workspace
+    .getConfiguration('pulumilsp')
+    .get<string | undefined>('logLevel');
+
   const clientOptions: LanguageClientOptions = {
     documentSelector: [{ scheme: 'file', language: 'typescript' }],
     progressOnInitialization: true,
+    initializationOptions: {
+      logLevel: logLevel || 'info',
+    },
   };
 
   // Create the language client and start the client.

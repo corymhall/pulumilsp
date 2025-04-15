@@ -2,9 +2,9 @@ package pulumicommand
 
 import (
 	"context"
-	"log"
 	"sync"
 
+	"github.com/corymhall/pulumilsp/debug"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 )
 
@@ -31,8 +31,10 @@ func (r *Runner) initialize() {
 	})
 }
 
-func (r *Runner) Run(ctx context.Context, logger *log.Logger) (map[string]*ResourceInfo, error) {
+func (r *Runner) Run(ctx context.Context) (map[string]*ResourceInfo, error) {
 	r.initialize()
+	ctx, done := debug.Start(ctx, "pulumicommand.Run")
+	defer done()
 
 	// Acquire the serialization lock.
 	select {
@@ -45,15 +47,13 @@ func (r *Runner) Run(ctx context.Context, logger *log.Logger) (map[string]*Resou
 	// Wait for in-progress pulumi commands to return before proceeding
 	select {
 	case <-ctx.Done():
-		logger.Println("context done")
 		return nil, ctx.Err()
 	case r.inFlight <- struct{}{}:
 		defer func() { <-r.inFlight }()
 	}
-	logger.Printf("Running pulumi command...")
-	res, err := run(ctx, r.stack, logger)
+	res, err := run(ctx, r.stack)
 	if err != nil {
-		logger.Printf("error running pulumi command: %v", err)
+		debug.LogError(ctx, "error running pulumi command", err)
 	}
 	return res, nil
 }

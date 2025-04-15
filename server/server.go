@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"slices"
@@ -13,6 +12,7 @@ import (
 	"sync/atomic"
 
 	"github.com/corymhall/pulumilsp/ai"
+	"github.com/corymhall/pulumilsp/debug"
 	"github.com/corymhall/pulumilsp/file"
 	"github.com/corymhall/pulumilsp/lsp"
 	"github.com/corymhall/pulumilsp/parser"
@@ -26,7 +26,7 @@ var viewIndex int64
 
 // New creates an LSP server and binds it to handle incoming client
 // messages on the supplied stream.
-func New(logger *log.Logger, client lsp.Client) lsp.Server {
+func New(client lsp.Client) lsp.Server {
 	const concurrentAnalyses = 1
 	napper, err := parser.NewResourceNapper(tree_sitter.NewLanguage(tree_sitter_typescript.LanguageTypescript()))
 	contract.AssertNoErrorf(err, "failed to create resource napper: %v", err)
@@ -34,13 +34,12 @@ func New(logger *log.Logger, client lsp.Client) lsp.Server {
 	// upgrade, it means that one or more new methods need new
 	// stub declarations in unimplemented.go.
 	return &server{
-		logger:          logger,
 		client:          client,
 		napper:          napper,
 		diagnostics:     make(map[lsp.DocumentURI]*fileDiagnostics),
 		diagnosticsSema: make(chan unit, concurrentAnalyses),
-		progress:        NewTracker(client, logger),
-		aiClient:        ai.NewClient(logger),
+		progress:        NewTracker(client),
+		aiClient:        ai.NewClient(),
 	}
 }
 func (s *server) GetCapturesFromURI(ctx context.Context, uri lsp.DocumentURI) ([]parser.CaptureInfo, error) {
@@ -86,7 +85,6 @@ func (s serverState) String() string {
 type unit struct{}
 
 type server struct {
-	logger   *log.Logger
 	client   lsp.Client
 	stateMu  sync.Mutex
 	aiClient *ai.Client
@@ -124,19 +122,18 @@ type server struct {
 	lastModificationID    uint64 // incrementing clock
 }
 
-func (s *server) Logger() *log.Logger {
-	return s.logger
-}
-
 // Initialize the view for the server.
 // This only needs to be done once, since there is only one view per session
 // TODO: add stuff here that needs to happen during initialization
 func (s *server) initializeView(ctx context.Context) {
+	ctx, done := debug.Start(ctx, "server.initializeView")
+	defer done()
 	if s.view == nil {
 		_, snapshot, release, err := s.NewView(ctx, s.rootURI)
 		if err != nil {
-			s.logger.Printf("error creating view: %v", err)
+			debug.LogError(ctx, "error creating view", err)
 		}
+		ctx, _ = debug.With(ctx, "snapshotSequenceID", snapshot.sequenceID)
 
 		var nsnapshots sync.WaitGroup
 		initialized := make(chan struct{})
@@ -236,6 +233,7 @@ func (s *server) updateCriticalErrorStatus(ctx context.Context, snapshot *Snapsh
 }
 
 func (s *server) invalidateViewLocked(ctx context.Context, changed StateChange) (*Snapshot, func()) {
+
 	ctx = xcontext.Detach(ctx)
 	view := s.view
 	view.snapshotMu.Lock()

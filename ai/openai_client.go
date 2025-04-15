@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -35,7 +34,7 @@ type OpenAIContent struct {
 	Text string `json:"text"`
 }
 
-func FixWithOpenAI(ctx context.Context, logger *log.Logger, content, problem string) (string, error) {
+func FixWithOpenAI(ctx context.Context, content, problem string) (string, error) {
 	client := http.DefaultClient
 
 	request := OpenAIRequest{
@@ -122,7 +121,6 @@ Failed policy check:
 	if err != nil {
 		return "", fmt.Errorf("reading response: %w", err)
 	}
-	logger.Printf("OpenAI response: %s", string(body))
 
 	var response OpenAIResponse
 	if err := json.Unmarshal(body, &response); err != nil {

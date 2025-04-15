@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"path"
 	"runtime"
 	"runtime/debug"
 
+	lsp_logger "github.com/corymhall/pulumilsp/logger"
 	"github.com/corymhall/pulumilsp/lsp"
 	"github.com/corymhall/pulumilsp/rpc"
 	"github.com/corymhall/pulumilsp/server"
@@ -19,16 +21,17 @@ func main() {
 	defer panicHandler()
 	ctx := context.Background()
 	logger := getLogger()
-	stream := rpc.NewHeaderStream(os.Stdin, os.Stdout, logger)
-	conn := rpc.NewConn(stream, logger)
+	stream := rpc.NewHeaderStream(os.Stdin, os.Stdout)
+	conn := rpc.NewConn(stream)
 	client := lsp.ClientDispatcher(conn)
-	srv := server.New(logger, client)
+	srv := server.New(client)
 	defer func() {
 		if err := srv.Shutdown(ctx); err != nil {
 			logger.Println("Error shutting down server:", err)
 		}
 	}()
 	ctx = lsp.WithClient(ctx, client)
+	slog.SetDefault(slog.New(lsp_logger.New(client)))
 	go conn.Run(ctx, lsp.ServerHandler(srv, rpc.MethodNotFound))
 	<-conn.Done()
 }

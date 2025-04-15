@@ -84,6 +84,13 @@ func NewVscodeProject(project projen.Project) typescript.TypeScriptProject {
 	vscode.Package().AddField(StrPtr("contributes"), Contributes{
 		Configuration: Configuration{
 			Title: "Pulumi Diagnostics LSP",
+			Properties: map[string]Property{
+				"pulumilsp.logLevel": {
+					Type:                []string{"string"},
+					Default:             StrPtr("info"),
+					MarkdownDescription: "The log level for the Pulumi LSP. Can be one of 'debug', 'info', 'warn', or 'error'.",
+				},
+			},
 		},
 	})
 	return vscode

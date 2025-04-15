@@ -10,13 +10,7 @@ import (
 	"github.com/corymhall/pulumilsp/xcontext"
 )
 
-type contextKey int
-
 type ProgressToken any
-
-const (
-	clientKey = contextKey(iota)
-)
 
 // UnmarshalJSON unmarshals msg into the variable pointed to by
 // params. In JSONRPC, optional messages may be
@@ -26,10 +20,6 @@ func UnmarshalJSON(msg json.RawMessage, v any) error {
 		return nil
 	}
 	return json.Unmarshal(msg, v)
-}
-
-func WithClient(ctx context.Context, client Client) context.Context {
-	return context.WithValue(ctx, clientKey, client)
 }
 
 var (
@@ -61,10 +51,8 @@ func (c clientConn) Notify(ctx context.Context, method string, params any) error
 }
 
 func (c clientConn) Call(ctx context.Context, method string, params any, result any) error {
-	c.conn.Logger().Printf("Calling method: %s", method)
 	id, err := c.conn.Call(ctx, method, params, result)
 	if ctx.Err() != nil {
-		c.conn.Logger().Printf("Request cancelled: %s", method)
 		cancelCall(ctx, c, id)
 	}
 	return err

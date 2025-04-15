@@ -3,7 +3,6 @@ package lsp
 import (
 	"context"
 	"fmt"
-	"log"
 	"path/filepath"
 	"strings"
 
@@ -60,7 +59,6 @@ type Server interface {
 	// WorkDoneProgressCancel(context.Context, *WorkDoneProgressCancelParams) error
 	// See https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification#workspace_diagnostic
 	// DiagnosticWorkspace(context.Context, *WorkspaceDiagnosticParams) (*WorkspaceDiagnosticReport, error)
-	Logger() *log.Logger
 }
 
 func serverDispatch(ctx context.Context, server Server, reply rpc.Replier, r rpc.Request) (bool, error) {
@@ -79,48 +77,32 @@ func serverDispatch(ctx context.Context, server Server, reply rpc.Replier, r rpc
 	// 	err := server.Progress(ctx, &params)
 	// 	return true, reply(ctx, nil, err)
 	case "initialize":
-		server.Logger().Printf("Received initialize request: %s", string(r.Params()))
 		var params InitializeRequestParams
 		if err := UnmarshalJSON(r.Params(), &params); err != nil {
 			return true, sendParseError(ctx, reply, err)
 		}
 		resp, err := server.Initialize(ctx, &params)
-		if err != nil {
-			server.Logger().Printf("Error initialize: %s", err)
-		}
 		return true, reply(ctx, resp, err)
 	case "initialized":
-		server.Logger().Printf("Received initialized notification: %s", string(r.Params()))
 		var params InitializedParams
 		if err := UnmarshalJSON(r.Params(), &params); err != nil {
 			return true, sendParseError(ctx, reply, err)
 		}
 		err := server.Initialized(ctx, &params)
-		if err != nil {
-			server.Logger().Printf("Error initialized: %s", err)
-		}
 		return true, reply(ctx, nil, err)
 	case "textDocument/didOpen":
-		server.Logger().Printf("Received didOpen notification: %s", string(r.Params()))
 		var params DidOpenTextDocumentParams
 		if err := UnmarshalJSON(r.Params(), &params); err != nil {
 			return true, sendParseError(ctx, reply, err)
 		}
 		err := server.DidOpen(ctx, &params)
-		if err != nil {
-			server.Logger().Printf("Error didOpen: %s", err)
-		}
 		return true, reply(ctx, nil, err)
 	case "textDocument/didSave":
-		server.Logger().Printf("Received didSave notification: %s", string(r.Params()))
 		var params DidSaveTextDocumentParams
 		if err := UnmarshalJSON(r.Params(), &params); err != nil {
 			return true, sendParseError(ctx, reply, err)
 		}
 		err := server.DidSave(ctx, &params)
-		if err != nil {
-			server.Logger().Printf("Error didSave: %s", err)
-		}
 		return true, reply(ctx, nil, err)
 	case "textDocument/codeAction":
 		var params CodeActionParams

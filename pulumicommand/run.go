@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
 
+	"github.com/corymhall/pulumilsp/debug"
 	"github.com/nxadm/tail"
 	"github.com/pulumi/providertest/grpclog"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
@@ -66,7 +66,7 @@ func (r *ResourceStore) getOrCreateResourceInfo(urn string) *ResourceInfo {
 	return r.Resources[urn]
 }
 
-func run(ctx context.Context, stack auto.Stack, logger *log.Logger) (map[string]*ResourceInfo, error) {
+func run(ctx context.Context, stack auto.Stack) (map[string]*ResourceInfo, error) {
 	store := &ResourceStore{}
 	events := make(chan GrpcEntry)
 
@@ -75,64 +75,64 @@ func run(ctx context.Context, stack auto.Stack, logger *log.Logger) (map[string]
 		return nil, fmt.Errorf("failed to tail logs: %w", err)
 	}
 	defer f.Close()
-	go processGrpcEvents(ctx, events, store, logger)
+	ctx, _ = debug.Start(ctx, "pulumi.preview", "filename", f.Filename)
+	go processGrpcEvents(ctx, events, store)
 
-	logger.Printf("Tailing logs from file: %s", f.Filename)
 	stack.Workspace().SetEnvVar("PULUMI_DEBUG_GRPC", f.Filename)
 
 	_, err = stack.Preview(ctx, optpreview.SuppressProgress())
 	return store.Resources, err
 }
 
-func processGrpcEvents(ctx context.Context, events <-chan GrpcEntry, store *ResourceStore, logger *log.Logger) {
+func processGrpcEvents(ctx context.Context, events <-chan GrpcEntry, store *ResourceStore) {
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Println("Stopping processGrpcEvents due to context cancellation")
+			debug.Debug.Log(ctx, "Stopping processGrpcEvents due to context cancellation")
 			return
 		case evt, ok := <-events:
 			if !ok {
-				logger.Println("Events channel closed, stopping processGrpcEvents")
+				debug.Debug.Log(ctx, "Events channel closed, stopping processGrpcEvents")
 				return
 			}
-			handleGrpcEvent(evt, store, logger)
+			handleGrpcEvent(ctx, evt, store)
 		}
 	}
 }
 
-func handleGrpcEvent(evt GrpcEntry, store *ResourceStore, logger *log.Logger) {
+func handleGrpcEvent(ctx context.Context, evt GrpcEntry, store *ResourceStore) {
 	switch evt.Method {
 	case "/pulumirpc.ResourceMonitor/RegisterResource":
-		logger.Println("RegisterResource event")
-		handleRegisterResource(evt, store, logger)
+		debug.Debug.Log(ctx, "RegisterResource event")
+		handleRegisterResource(ctx, evt, store)
 	case "/pulumirpc.Analyzer/AnalyzeStack":
-		logger.Println("AnalyzeStack event")
-		handleAnalyzeStack(evt, store, logger)
+		debug.Debug.Log(ctx, "AnalyzeStack event")
+		handleAnalyzeStack(ctx, evt, store)
 	case "/pulumirpc.Analyzer/Analyze":
-		logger.Println("AnalyzeStack event")
-		handleAnalyze(evt, store, logger)
+		debug.Debug.Log(ctx, "AnalyzeStack event")
+		handleAnalyze(ctx, evt, store)
 	default:
 		// Unhandled method
 	}
 }
 
-func handleRegisterResource(evt GrpcEntry, store *ResourceStore, logger *log.Logger) {
+func handleRegisterResource(ctx context.Context, evt GrpcEntry, store *ResourceStore) {
 	tEntry, err := unmarshalTypedEntry[rpc.RegisterResourceRequest, rpc.RegisterResourceResponse](evt.GrpcLogEntry)
 	if err != nil {
-		logger.Printf("Error unmarshalling register resource entry: %v", err)
+		debug.LogError(ctx, "Error unmarshalling register resource entry", err)
 		return
 	}
 	store.getOrCreateResourceInfo(tEntry.Response.Urn).SetSourcePosition(tEntry.Request.SourcePosition)
 }
 
-func handleAnalyzeStack(evt GrpcEntry, store *ResourceStore, logger *log.Logger) {
+func handleAnalyzeStack(ctx context.Context, evt GrpcEntry, store *ResourceStore) {
 	tEntry, err := unmarshalTypedEntry[rpc.AnalyzeStackRequest, rpc.AnalyzeResponse](evt.GrpcLogEntry)
 	if err != nil {
-		logger.Printf("Error unmarshalling analyze stack entry: %v", err)
+		debug.LogError(ctx, "Error unmarshalling analyze stack entry", err)
 		return
 	}
 	if tEntry.Response.Diagnostics == nil {
-		logger.Printf("No diagnostics found in analyze stack response for Stack")
+		debug.Debug.Log(ctx, "No diagnostics found in analyze stack response for Stack")
 		return
 	}
 	for _, d := range tEntry.Response.Diagnostics {
@@ -140,14 +140,14 @@ func handleAnalyzeStack(evt GrpcEntry, store *ResourceStore, logger *log.Logger)
 	}
 }
 
-func handleAnalyze(evt GrpcEntry, store *ResourceStore, logger *log.Logger) {
+func handleAnalyze(ctx context.Context, evt GrpcEntry, store *ResourceStore) {
 	tEntry, err := unmarshalTypedEntry[rpc.AnalyzeRequest, rpc.AnalyzeResponse](evt.GrpcLogEntry)
 	if err != nil {
-		logger.Printf("Error unmarshalling analyze entry: %v", err)
+		debug.LogError(ctx, "Error unmarshalling analyze entry: %v", err)
 		return
 	}
 	if tEntry.Response.Diagnostics == nil {
-		logger.Printf("No diagnostics found in analyze response for URN: %s", tEntry.Request.Urn)
+		debug.Debug.Log(ctx, "No diagnostics found in analyze response for URN", "URN", tEntry.Request.Urn)
 		return
 	}
 	store.getOrCreateResourceInfo(tEntry.Request.Urn).SetDiagnostics(tEntry.Response.Diagnostics)

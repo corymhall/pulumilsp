@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
+	"github.com/corymhall/pulumilsp/debug"
 	"github.com/corymhall/pulumilsp/lsp"
 	"github.com/corymhall/pulumilsp/parser"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
@@ -41,10 +43,9 @@ func (s *server) mustPublishDiagnostics(uri lsp.DocumentURI) {
 }
 
 func (s *server) diagnoseSnapshot(ctx context.Context, snapshot *Snapshot, changedURIs []lsp.DocumentURI, delay time.Duration) {
-	s.logger.Printf("diagnoseSnapshot: %d", snapshot.SequenceID())
 	diagnostics, err := s.diagnose(ctx, snapshot)
 	if err != nil {
-		s.logger.Printf("error diagnosing snapshot: %v", err)
+		debug.LogError(ctx, "diagnoseSnapshot", err)
 		return
 	}
 
@@ -52,17 +53,17 @@ func (s *server) diagnoseSnapshot(ctx context.Context, snapshot *Snapshot, chang
 }
 
 func (s *server) diagnoseChangedView(ctx context.Context, modID uint64, lastChange []lsp.DocumentURI, cause ModificationSource) {
-	s.logger.Printf("diagnoseChangedView: %d views to diagnose", modID)
+	ctx, done := debug.Start(ctx, "diagnoseChangedView")
+	defer done()
 
 	snapshot, release, err := s.view.Snapshot()
 	if err != nil {
-		s.logger.Printf("error getting snapshot: %v", err)
+		debug.LogError(ctx, "error getting view", err)
 		return
 	}
 	defer release()
 
 	if cause != FromDidSave {
-		s.logger.Printf("diagnoseChangedView: cause %v", cause)
 		// only update on save
 		return
 	}
@@ -78,7 +79,7 @@ func (s *server) publishFileDiagnostics(ctx context.Context, uri lsp.DocumentURI
 		URI:         uri,
 		Version:     f.viewDiagnostic.version,
 	}); err != nil {
-		s.logger.Printf("error publishing diagnostics: %v", err)
+		debug.LogError(ctx, "error publishing diagnostics", err)
 		return err
 	}
 	return nil
@@ -100,13 +101,15 @@ func toProtocolDiagnostics(diags []*Diagnostic) []lsp.Diagnostic {
 }
 
 func (s *server) updateDiagnostics(ctx context.Context, snapshot *Snapshot, diagnostics diagMap) {
+	ctx, done := debug.Start(ctx, "server.updateDiagnostics")
+	defer done()
 	s.diagnosticsMu.Lock()
 	defer s.diagnosticsMu.Unlock()
 
 	// before updating diagnostics, check if the context (i.e. snapshot background context)
 	// is not  cancelled. That would mean we started diagnosing the next snapshot
 	if ctx.Err() != nil {
-		s.logger.Printf("context error while updating diagnostics for snapshot %d: %v", snapshot.SequenceID(), ctx.Err())
+		debug.LogError(ctx, "context error while updating diagnostics for snapshot", ctx.Err())
 		return
 	}
 
@@ -136,7 +139,7 @@ func (s *server) updateDiagnostics(ctx context.Context, snapshot *Snapshot, diag
 		}
 		seen[uri] = true
 		if err := updateAndPublish(uri, f, diags); err != nil {
-			s.logger.Printf("context error while updating diagnostics: %v", ctx.Err())
+			debug.LogError(ctx, "context error while updating diagnostics", err)
 			if ctx.Err() != nil {
 				return
 			}
@@ -147,7 +150,7 @@ func (s *server) updateDiagnostics(ctx context.Context, snapshot *Snapshot, diag
 	for uri, f := range s.diagnostics {
 		if !seen[uri] {
 			if err := updateAndPublish(uri, f, nil); err != nil {
-				s.logger.Printf("context error while updating diagnostics: %v", ctx.Err())
+				debug.LogError(ctx, "context error while updating diagnostics", err)
 				if ctx.Err() != nil {
 					return
 				}
@@ -157,6 +160,8 @@ func (s *server) updateDiagnostics(ctx context.Context, snapshot *Snapshot, diag
 }
 
 func (s *server) diagnose(ctx context.Context, snapshot *Snapshot) (diagMap, error) {
+	ctx, done := debug.Start(ctx, "server.diagnose")
+	defer done()
 	// wait for a free diagnostics slot
 	select {
 	case <-ctx.Done():
@@ -181,38 +186,43 @@ func (s *server) diagnose(ctx context.Context, snapshot *Snapshot) (diagMap, err
 		return nil, fmt.Errorf("no runner")
 	}
 
-	resources, err := runner.Run(ctx, s.logger)
+	resources, err := runner.Run(ctx)
 	// TODO: we need to differentiate between critical errors
 	// (i.e. errors that prevent any results) and errors on individual resources
 	if err != nil {
-		s.logger.Printf("error running Run: %v", err)
+		debug.LogError(ctx, "error running Run", err)
 		s.updateCriticalErrorStatus(ctx, snapshot, &InitializationError{
 			MainError: err,
 		})
 		return nil, err
 	}
-	s.logger.Printf("diagnostics for %d resources", len(resources))
 
 	fileCaptures := make(map[lsp.DocumentURI][]parser.CaptureInfo)
 	for urn, info := range resources {
+		_, logger := debug.WithGroup(ctx, "diagnostics")
+		logger = logger.With(
+			"urn", urn,
+			"line", info.SourcePosition.Line,
+			"uri", info.SourcePosition.Uri,
+			"numDiagnostics", len(info.Diagnostics),
+			"resources", len(resources),
+		)
 		if info.Diagnostics == nil || info.SourcePosition == nil {
-			s.logger.Printf("diagnostics for %s: no diagnostics or source position", urn)
+			logger.DebugContext(ctx, "No diagnostics or source position")
 			continue
 		}
 		uri := lsp.DocumentURI(info.SourcePosition.Uri)
 		if _, ok := fileCaptures[uri]; !ok {
 			captures, err := s.GetCapturesFromURI(ctx, uri)
 			if err != nil {
-				s.logger.Printf("error getting captures from URI %s: %v", uri, err)
+				logger.ErrorContext(ctx, "error getting captures from URI", "error", err)
 				continue
 			}
 			fileCaptures[uri] = captures
 		}
 		infos := fileCaptures[uri]
-		s.logger.Printf("diagnostics for %s", uri)
 		diags := []*Diagnostic{}
 		for _, diag := range info.Diagnostics {
-			s.logger.Printf("diagnostics for %s: %s at %d %d", uri, diag.Message, info.SourcePosition.Line, info.SourcePosition.Column)
 			diagCapture := findCaptureWithStartLine(infos, info.SourcePosition.Line-1)
 			data := lsp.CodeActionResolveData{
 				CaptureInfo: *diagCapture,
@@ -220,7 +230,7 @@ func (s *server) diagnose(ctx context.Context, snapshot *Snapshot) (diagMap, err
 			}
 			rawData, err := json.Marshal(data)
 			if err != nil {
-				s.logger.Printf("error marshalling capture: %v", err)
+				slog.ErrorContext(ctx, "error marshalling capture", "error", err)
 				continue
 			}
 			msg := json.RawMessage(rawData)

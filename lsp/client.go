@@ -13,6 +13,12 @@ type Client interface {
 	ProgressEnd(context.Context, *WorkDoneProgressEndParams) error
 	// See https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification#window_showMessage
 	ShowMessage(context.Context, *ShowMessageParams) error
+	// See https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification#logTrace
+	// LogTrace(context.Context, *LogTraceParams) error
+	// See https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification#window_logMessage
+	LogMessage(context.Context, *LogMessageParams) error
+	// See https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification#workspace_configuration
+	Configuration(context.Context, *ParamConfiguration) ([]LSPAny, error)
 }
 
 func (s *clientDispatcher) PublishDiagnostics(ctx context.Context, params *PublishDiagnosticsParams) error {
@@ -33,4 +39,16 @@ func (s *clientDispatcher) ProgressEnd(ctx context.Context, params *WorkDoneProg
 
 func (s *clientDispatcher) ShowMessage(ctx context.Context, params *ShowMessageParams) error {
 	return s.sender.Notify(ctx, "window/showMessage", params)
+}
+
+func (s *clientDispatcher) LogMessage(ctx context.Context, params *LogMessageParams) error {
+	return s.sender.Notify(ctx, "window/logMessage", params)
+}
+
+func (s *clientDispatcher) Configuration(ctx context.Context, params *ParamConfiguration) ([]LSPAny, error) {
+	var result []LSPAny
+	if err := s.sender.Call(ctx, "workspace/configuration", params, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
 }

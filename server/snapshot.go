@@ -6,6 +6,7 @@ import (
 	"maps"
 	"sync"
 
+	"github.com/corymhall/pulumilsp/debug"
 	"github.com/corymhall/pulumilsp/file"
 	"github.com/corymhall/pulumilsp/lsp"
 	"github.com/corymhall/pulumilsp/pulumicommand"
@@ -69,6 +70,8 @@ func (s *Snapshot) InitializationError() *InitializationError {
 }
 
 func (s *Snapshot) initialize(ctx context.Context, firstAttempt bool) {
+	ctx, done := debug.Start(ctx, "snapshot.initialize")
+	defer done()
 	select {
 	case <-ctx.Done():
 		return

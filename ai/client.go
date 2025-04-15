@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -28,15 +27,13 @@ type Client struct {
 	apiURL     string
 	apiToken   apiAccessToken
 	httpClient *http.Client
-	logger     *log.Logger
 }
 
-func NewClient(logger *log.Logger) *Client {
+func NewClient() *Client {
 	account, err := workspace.GetAccount(PulumiCloudURL)
 	contract.AssertNoErrorf(err, "failed to get account for %s", PulumiCloudURL)
 	httpClient := http.DefaultClient
 	return &Client{
-		logger:     logger,
 		apiURL:     PulumiCloudURL,
 		apiToken:   apiAccessToken(account.AccessToken),
 		httpClient: httpClient,
@@ -64,7 +61,6 @@ func (pc *Client) FixWithCopilot2(
 	if err != nil {
 		return "", fmt.Errorf("preparing request: %w", err)
 	}
-	pc.logger.Printf("request: %s", string(jsonData))
 
 	// Requests that take longer that 10 seconds will result in this message being printed to the user:
 	// "Error summarizing update output: making request: Post "https://api.pulumi.com/api/ai/chat/preview":
@@ -109,7 +105,7 @@ func (pc *Client) FixWithCopilot2(
 		return "", fmt.Errorf("copilot API error: %s\n%s", copilotResp.Error, copilotResp.Details)
 	}
 
-	return extractSummaryFromResponse(pc.logger, copilotResp)
+	return extractSummaryFromResponse(copilotResp)
 }
 
 // SummarizeErrorWithCopilot summarizes Pulumi Update output using the Copilot API
@@ -128,7 +124,6 @@ func (pc *Client) FixWithCopilot(
 	if err != nil {
 		return "", fmt.Errorf("preparing request: %w", err)
 	}
-	pc.logger.Printf("request: %s", string(jsonData))
 
 	// Requests that take longer that 10 seconds will result in this message being printed to the user:
 	// "Error summarizing update output: making request: Post "https://api.pulumi.com/api/ai/chat/preview":
@@ -173,7 +168,7 @@ func (pc *Client) FixWithCopilot(
 		return "", fmt.Errorf("copilot API error: %s\n%s", copilotResp.Error, copilotResp.Details)
 	}
 
-	return extractSummaryFromResponse(pc.logger, copilotResp)
+	return extractSummaryFromResponse(copilotResp)
 }
 
 // createFixRequest creates a new CopilotSummarizeUpdateRequest with the given content and org ID
@@ -280,10 +275,9 @@ type CopilotMessagePlan struct {
 }
 
 // extractSummaryFromResponse parses the Copilot API response and extracts the summary content
-func extractSummaryFromResponse(logger *log.Logger, copilotResp apitype.CopilotSummarizeUpdateResponse) (string, error) {
+func extractSummaryFromResponse(copilotResp apitype.CopilotSummarizeUpdateResponse) (string, error) {
 	var finalMessage string
 	for _, msg := range copilotResp.ThreadMessages {
-		logger.Printf("copilot message: %s - %s - %s", msg.Content, msg.Kind, msg.Role)
 		if msg.Role != "assistant" {
 			continue
 		}

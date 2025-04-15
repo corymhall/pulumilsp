@@ -2,11 +2,12 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"log"
 	"strconv"
 	"sync"
 
+	"github.com/corymhall/pulumilsp/debug"
 	"github.com/corymhall/pulumilsp/lsp"
 	"github.com/corymhall/pulumilsp/xcontext"
 	"golang.org/x/exp/rand"
@@ -16,7 +17,6 @@ import (
 type Tracker struct {
 	client                   lsp.Client
 	supportsWorkDoneProgress bool
-	logger                   *log.Logger
 
 	mu         sync.Mutex
 	inProgress map[lsp.ProgressToken]*WorkDone
@@ -24,10 +24,9 @@ type Tracker struct {
 
 // NewTracker returns a new Tracker that reports progress to the
 // specified client.
-func NewTracker(client lsp.Client, logger *log.Logger) *Tracker {
+func NewTracker(client lsp.Client) *Tracker {
 	return &Tracker{
 		client:     client,
-		logger:     logger,
 		inProgress: make(map[lsp.ProgressToken]*WorkDone),
 	}
 }
@@ -48,8 +47,6 @@ type WorkDone struct {
 	// err is set if progress reporting is broken for some reason (for example,
 	// if there was an initial error creating a token).
 	err error
-
-	logger *log.Logger
 
 	cancelMu  sync.Mutex
 	cancelled bool
@@ -72,27 +69,24 @@ func (t *Tracker) Start(ctx context.Context, title, message string, token lsp.Pr
 		client: t.client,
 		token:  token,
 		cancel: cancel,
-		logger: t.logger,
 	}
 	if !t.supportsWorkDoneProgress {
 		if err := wd.client.ShowMessage(ctx, &lsp.ShowMessageParams{
 			Type:    4, // log
 			Message: message,
 		}); err != nil {
-			t.logger.Printf("error showing message: %v", err)
+			debug.LogError(ctx, "error showing message", err)
 		}
 		return wd
 	}
 
 	if wd.token == nil {
 		token = strconv.FormatInt(rand.Int63(), 10)
-		t.logger.Printf("creating progress token %q", token)
 		err := wd.client.WorkDoneProgressCreate(ctx, &lsp.WorkDoneProgressCreateParams{
 			Token: token,
 		})
-		t.logger.Printf("created progress token %q", token)
 		if err != nil {
-			t.logger.Printf("error creating progress token: %v", err)
+			debug.LogError(ctx, "error creating progress token", err)
 			wd.err = err
 			return wd
 		}
@@ -106,7 +100,6 @@ func (t *Tracker) Start(ctx context.Context, title, message string, token lsp.Pr
 		delete(t.inProgress, token)
 		t.mu.Unlock()
 	}
-	t.logger.Printf("starting progress %q", wd.token)
 	err := wd.client.ProgressBegin(ctx, &lsp.WorkDoneProgressBeginParams{
 		Token: wd.token,
 		Value: &lsp.WorkDoneProgressBeginValue{
@@ -117,7 +110,7 @@ func (t *Tracker) Start(ctx context.Context, title, message string, token lsp.Pr
 		},
 	})
 	if err != nil {
-		t.logger.Printf("error starting progress: %v", err)
+		debug.LogError(ctx, "error starting progress", err)
 	}
 	return wd
 }
@@ -126,7 +119,7 @@ func (t *Tracker) Start(ctx context.Context, title, message string, token lsp.Pr
 func (wd *WorkDone) End(ctx context.Context, message string) {
 	ctx = xcontext.Detach(ctx) // progress messages should not be cancelled
 	if wd == nil {
-		wd.logger.Printf("end called on nil work done")
+		debug.LogError(ctx, "work done error", errors.New("end called on nil work done"))
 		return
 	}
 	var err error
@@ -140,7 +133,6 @@ func (wd *WorkDone) End(ctx context.Context, message string) {
 			Message: message,
 		})
 	default:
-		wd.logger.Printf("ending progress %q", wd.token)
 		err = wd.client.ProgressEnd(ctx, &lsp.WorkDoneProgressEndParams{
 			Token: wd.token,
 			Value: &lsp.WorkDoneProgressEndValue{
@@ -150,7 +142,7 @@ func (wd *WorkDone) End(ctx context.Context, message string) {
 		})
 	}
 	if err != nil {
-		wd.logger.Printf("error ending progress: %v", err)
+		debug.LogError(ctx, "error ending progress", err)
 	}
 	if wd.cleanup != nil {
 		wd.cleanup()

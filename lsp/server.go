@@ -109,11 +109,13 @@ func serverDispatch(ctx context.Context, server Server, reply rpc.Replier, r rpc
 		if err := UnmarshalJSON(r.Params(), &params); err != nil {
 			return true, sendParseError(ctx, reply, err)
 		}
-		resp, err := server.CodeAction(ctx, &params)
-		if err != nil {
-			return true, reply(ctx, nil, err)
-		}
-		return true, reply(ctx, resp, nil)
+		return true, nil
+		// TODO: code actions aren't ready yet, just a hackathon for now
+		// resp, err := server.CodeAction(ctx, &params)
+		// if err != nil {
+		// 	return true, reply(ctx, nil, err)
+		// }
+		// return true, reply(ctx, resp, nil)
 	case "codeAction/resolve":
 		var params CodeAction
 		if err := UnmarshalJSON(r.Params(), &params); err != nil {
